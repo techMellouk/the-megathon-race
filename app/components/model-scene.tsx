@@ -10,7 +10,8 @@ import {
   OrbitControls,
   useGLTF,
 } from "@react-three/drei";
-import { Suspense, useEffect, useMemo, useRef } from "react";
+import { Component, Suspense, useEffect, useMemo, useRef } from "react";
+import type { ErrorInfo, ReactNode } from "react";
 import * as THREE from "three";
 
 type SceneStatus = "generating" | "ready" | "error";
@@ -66,6 +67,50 @@ function LoadingSculpture() {
       <pointLight color="#ff684f" intensity={16} position={[1.8, 1.2, 1.8]} />
       <pointLight color="#69d7ff" intensity={12} position={[-1.6, -0.5, 1.5]} />
     </group>
+  );
+}
+
+interface ModelErrorBoundaryProps {
+  children: ReactNode;
+  fallback: ReactNode;
+}
+
+interface ModelErrorBoundaryState {
+  hasError: boolean;
+}
+
+class ModelErrorBoundary extends Component<
+  ModelErrorBoundaryProps,
+  ModelErrorBoundaryState
+> {
+  constructor(props: ModelErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(): ModelErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("Failed to load 3D model:", error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+
+    return this.props.children;
+  }
+}
+
+function ModelLoadError() {
+  return (
+    <mesh position={[0, 0.12, 0]}>
+      <boxGeometry args={[0.6, 0.6, 0.6]} />
+      <meshStandardMaterial color="#ff4444" wireframe />
+    </mesh>
   );
 }
 
@@ -126,17 +171,19 @@ export default function ModelScene({ modelUrl, status }: ModelSceneProps) {
         position={[0, -1.16, 0]}
         scale={8}
       />
-      <Suspense fallback={<LoadingSculpture />}>
-        {showModel ? (
-          <Bounds fit clip observe margin={2.2}>
-            <Center>
-              <GeneratedModel url={modelUrl} />
-            </Center>
-          </Bounds>
-        ) : (
-          <LoadingSculpture />
-        )}
-      </Suspense>
+      <ModelErrorBoundary fallback={<ModelLoadError />}>
+        <Suspense fallback={<LoadingSculpture />}>
+          {showModel ? (
+            <Bounds fit clip observe margin={2.2}>
+              <Center>
+                <GeneratedModel url={modelUrl} />
+              </Center>
+            </Bounds>
+          ) : (
+            <LoadingSculpture />
+          )}
+        </Suspense>
+      </ModelErrorBoundary>
       <OrbitControls
         autoRotate={status === "generating"}
         autoRotateSpeed={0.65}
