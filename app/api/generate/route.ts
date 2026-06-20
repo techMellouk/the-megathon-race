@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Client } from "wavespeed";
+import { getErrorMessage } from "@/lib/utils";
+import { jsonError, jsonSuccess } from "@/lib/api-response";
 
 export const runtime = "nodejs";
 
@@ -11,14 +13,6 @@ const MAX_PROMPT_LENGTH = 600;
 type GenerationBody = {
   prompt?: unknown;
 };
-
-function errorMessage(error: unknown) {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Unknown generation error.";
-}
 
 function extractOutputUrl(output: unknown): string | null {
   if (typeof output === "string") {
@@ -82,29 +76,23 @@ export async function POST(request: Request) {
   try {
     body = (await request.json()) as GenerationBody;
   } catch {
-    return Response.json({ error: "Request body must be valid JSON." }, { status: 400 });
+    return jsonError("Request body must be valid JSON.", 400);
   }
 
   const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
 
   if (!prompt) {
-    return Response.json({ error: "Prompt is required." }, { status: 400 });
+    return jsonError("Prompt is required.", 400);
   }
 
   if (prompt.length > MAX_PROMPT_LENGTH) {
-    return Response.json(
-      { error: `Prompt must be ${MAX_PROMPT_LENGTH} characters or less.` },
-      { status: 400 },
-    );
+    return jsonError(`Prompt must be ${MAX_PROMPT_LENGTH} characters or less.`, 400);
   }
 
   const apiKey = process.env.WAVESPEED_API_KEY;
 
   if (!apiKey) {
-    return Response.json(
-      { error: "WAVESPEED_API_KEY is not configured on the server." },
-      { status: 500 },
-    );
+    return jsonError("WAVESPEED_API_KEY is not configured on the server.", 500);
   }
 
   try {
@@ -144,11 +132,8 @@ export async function POST(request: Request) {
 
     const modelUrl = await cacheModel(outputUrl);
 
-    return Response.json({
-      modelUrl,
-      sourceUrl: outputUrl,
-    });
+    return jsonSuccess({ modelUrl, sourceUrl: outputUrl });
   } catch (error) {
-    return Response.json({ error: errorMessage(error) }, { status: 502 });
+    return jsonError(getErrorMessage(error, "Unknown generation error."), 502);
   }
 }

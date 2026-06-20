@@ -3,9 +3,7 @@
 import React from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { ArrowUp, Square, StopCircle, Mic } from "lucide-react";
-
-// Utility function for className merging
-const cn = (...classes: (string | undefined | null | false)[]) => classes.filter(Boolean).join(" ");
+import { cn } from "@/lib/utils";
 
 // Embedded CSS for minimal custom styles
 const styles = `

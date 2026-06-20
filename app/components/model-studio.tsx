@@ -7,6 +7,8 @@ import ModelScene from "./model-scene";
 import { GeneratingLoader } from "./generating-loader";
 import { LinkedInButton } from "./linkedin-button";
 import { PromptInputBox } from "@/components/ui/ai-prompt-box";
+import { getErrorMessage } from "@/lib/utils";
+import { fadeBlurIn, fadeIn, scaleBlurIn } from "@/lib/motion";
 
 type GenerationStatus = "idle" | "generating" | "ready" | "error";
 
@@ -53,11 +55,7 @@ export default function ModelStudio() {
       setModelUrl(data.modelUrl);
       setStatus("ready");
     } catch (generationError) {
-      setError(
-        generationError instanceof Error
-          ? generationError.message
-          : "Generation failed.",
-      );
+      setError(getErrorMessage(generationError, "Generation failed."));
       setStatus("error");
     }
   }
@@ -82,10 +80,7 @@ export default function ModelStudio() {
             key="hero"
             className="prompt-screen gradient-bg"
             aria-label="3D model prompt"
-            initial={{ opacity: 0, y: 18, filter: "blur(8px)" }}
-            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-            exit={{ opacity: 0, y: -24, scale: 0.97, filter: "blur(10px)" }}
-            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            {...fadeBlurIn}
           >
             <div className="prompt-stack">
               <div className="hero-heading">
@@ -119,10 +114,7 @@ export default function ModelStudio() {
             key="loading"
             className="loading-screen gradient-bg"
             aria-label="Generating model"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0, scale: 1.04 }}
-            transition={{ duration: 0.45, ease: "easeInOut" }}
+            {...fadeIn}
           >
             <GeneratingLoader prompt={submittedPrompt} />
           </motion.section>
@@ -133,10 +125,7 @@ export default function ModelStudio() {
             key="scene"
             className="canvas-screen"
             aria-label="Generated 3D model"
-            initial={{ opacity: 0, scale: 1.06, filter: "blur(14px)" }}
-            animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+            {...scaleBlurIn}
           >
             <ModelScene
               modelUrl={modelUrl}
