@@ -50,11 +50,30 @@ function extensionFor(url: string, contentType: string | null) {
   return ".glb";
 }
 
+class UpstreamError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UpstreamError";
+  }
+}
+
 async function cacheModel(outputUrl: string) {
-  const response = await fetch(outputUrl);
+  let response: Response;
+
+  try {
+    response = await fetch(outputUrl);
+  } catch (error) {
+    throw new UpstreamError(
+      `Failed to connect to WaveSpeed output URL: ${
+        error instanceof Error ? error.message : "unknown network error"
+      }`,
+    );
+  }
 
   if (!response.ok) {
-    throw new Error(`Could not download WaveSpeed output: ${response.status}`);
+    throw new UpstreamError(
+      `Could not download WaveSpeed output: ${response.status}`,
+    );
   }
 
   const contentType = response.headers.get("content-type");
@@ -127,13 +146,14 @@ export async function POST(request: Request) {
     const outputUrl = extractOutputUrl(result.outputs?.[0]);
 
     if (!outputUrl) {
-      throw new Error("WaveSpeed did not return a model URL.");
+      throw new UpstreamError("WaveSpeed did not return a model URL.");
     }
 
     const modelUrl = await cacheModel(outputUrl);
 
     return jsonSuccess({ modelUrl, sourceUrl: outputUrl });
   } catch (error) {
-    return jsonError(getErrorMessage(error, "Unknown generation error."), 502);
+    const status = error instanceof UpstreamError ? 502 : 500;
+    return jsonError(getErrorMessage(error, "Unknown generation error."), status);
   }
 }

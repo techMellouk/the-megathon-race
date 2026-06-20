@@ -46,7 +46,13 @@ export default function ModelStudio() {
         headers: { "Content-Type": "application/json" },
         method: "POST",
       });
-      const data = (await response.json()) as GenerateResponse;
+
+      let data: GenerateResponse;
+      try {
+        data = (await response.json()) as GenerateResponse;
+      } catch {
+        throw new Error(`Server error (${response.status})`);
+      }
 
       if (!response.ok || !data.modelUrl) {
         throw new Error(data.error || "Generation failed.");

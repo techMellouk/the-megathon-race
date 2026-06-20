@@ -29,7 +29,11 @@ export async function GET(
         "Content-Type": contentTypeFor(modelId),
       },
     });
-  } catch {
-    return new Response("Model not found", { status: 404 });
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      return new Response("Model not found", { status: 404 });
+    }
+
+    return new Response("Failed to read model file", { status: 500 });
   }
 }
