@@ -33,7 +33,7 @@ export async function POST(request: Request) {
 
   try {
     const client = getMollieClient();
-    const baseUrl = getAppUrl();
+    const baseUrl = getAppUrl(request);
     const amount = getPaymentAmount();
 
     const payment = await client.payments.create({
