@@ -1,9 +1,11 @@
 'use client'
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
+import { Sparkles, Stars } from "@react-three/drei";
 import * as THREE from "three";
 import Track from "./Track";
 import Arena from "./Arena";
+import Stadium from "./Stadium";
 import PlayerCar from "./PlayerCar";
 import OpponentCar from "./OpponentCar";
 import { usePlayerControls } from "./usePlayerControls";
@@ -62,6 +64,54 @@ type Props = {
   onReport: (next: { rank: number; lap: number; speed: number }) => void;
   onFinish: (board: LeaderboardEntry[]) => void;
 };
+
+// Two searchlights mounted high that slowly sweep across the arena for vibe.
+function SweepLights() {
+  const targetA = useMemo(() => new THREE.Object3D(), []);
+  const targetB = useMemo(() => new THREE.Object3D(), []);
+  const lightA = useRef<THREE.SpotLight>(null);
+  const lightB = useRef<THREE.SpotLight>(null);
+
+  useEffect(() => {
+    if (lightA.current) lightA.current.target = targetA;
+    if (lightB.current) lightB.current.target = targetB;
+  }, [targetA, targetB]);
+
+  useFrame((state) => {
+    const e = state.clock.elapsedTime;
+    targetA.position.set(Math.sin(e * 0.35) * 120, 0, Math.cos(e * 0.27) * 85);
+    targetA.updateMatrixWorld();
+    targetB.position.set(Math.sin(e * 0.31 + 2.2) * 120, 0, Math.cos(e * 0.34 + 1) * 85);
+    targetB.updateMatrixWorld();
+  });
+
+  return (
+    <>
+      <primitive object={targetA} />
+      <primitive object={targetB} />
+      <spotLight
+        ref={lightA}
+        position={[150, 95, 130]}
+        angle={0.34}
+        penumbra={0.9}
+        intensity={1100}
+        distance={560}
+        decay={1.15}
+        color="#ffe6b0"
+      />
+      <spotLight
+        ref={lightB}
+        position={[-150, 95, -120]}
+        angle={0.34}
+        penumbra={0.9}
+        intensity={1100}
+        distance={560}
+        decay={1.15}
+        color="#ffd79a"
+      />
+    </>
+  );
+}
 
 const OPPONENTS: Omit<OppSim, "dist" | "finished" | "finishTime">[] = [
   { id: "cpu-1", label: "Rival 1", color: "#e2b007", speed: 86, lane: -5 },
@@ -290,16 +340,23 @@ export default function RaceScene({ modelId, phase, onReport, onFinish }: Props)
 
   return (
     <>
-      <color attach="background" args={["#0d0b08"]} />
-      <fog attach="fog" args={["#1a130a", 180, 640]} />
+      <color attach="background" args={["#0a0806"]} />
+      <fog attach="fog" args={["#160f08", 220, 720]} />
 
-      <hemisphereLight args={["#5a4a2a", "#0a0d0a", 0.7]} />
-      <ambientLight intensity={0.35} />
-      <directionalLight color="#ffe2ac" position={[90, 150, 50]} intensity={1.5} />
+      <Stars radius={520} depth={120} count={2600} factor={7} saturation={0} fade speed={0.5} />
+
+      <hemisphereLight args={["#5a4a2a", "#08060a", 0.7]} />
+      <ambientLight intensity={0.32} />
+      <directionalLight color="#ffe2ac" position={[90, 150, 50]} intensity={1.4} />
       <directionalLight color="#b88a3a" position={[-80, 60, -40]} intensity={0.5} />
+      <SweepLights />
 
       <Track />
       <Arena />
+      <Stadium />
+
+      <Sparkles count={150} scale={[440, 70, 340]} position={[0, 34, 0]} size={9} speed={0.4} color="#ffd06a" opacity={0.7} noise={1.4} />
+      <Sparkles count={90} scale={[440, 22, 340]} position={[0, 12, 0]} size={5} speed={0.25} color="#fff0c0" opacity={0.5} />
 
       <group ref={playerRef}>
         <group ref={playerLeanRef}>

@@ -45,31 +45,9 @@ function makeBanner(
   return tex;
 }
 
-function makeCrowd(): THREE.Texture | null {
-  if (typeof document === "undefined") return null;
-  const c = document.createElement("canvas");
-  c.width = 512;
-  c.height = 128;
-  const ctx = c.getContext("2d");
-  if (!ctx) return null;
-  ctx.fillStyle = "#0a0906";
-  ctx.fillRect(0, 0, 512, 128);
-  const palette = ["#ffd06a", "#f2b53a", "#d7d2c6", "#9a7b3a", "#fff4d6"];
-  for (let i = 0; i < 1100; i++) {
-    ctx.fillStyle = palette[(Math.random() * palette.length) | 0];
-    ctx.globalAlpha = 0.5 + Math.random() * 0.5;
-    ctx.fillRect(Math.random() * 512, Math.random() * 128, 3, 3);
-  }
-  ctx.globalAlpha = 1;
-  const tex = new THREE.CanvasTexture(c);
-  tex.wrapS = THREE.RepeatWrapping;
-  tex.repeat.set(6, 1);
-  return tex;
-}
-
 const FLAG_W = 6;
 const FLAG_H = 3;
-const FLAGS_PER_SIDE = 14;
+const FLAGS_PER_SIDE = 24;
 
 type FlagInfo = { px: number; pz: number; heading: number; phase: number; gold: boolean };
 
@@ -80,7 +58,6 @@ export default function Arena() {
     () => makeBanner("MEGATHON", "START · FINISH", DARK, GOLD_BRIGHT, 1024, 256),
     [],
   );
-  const crowd = useMemo(() => makeCrowd(), []);
 
   const baseGeo = useMemo(() => new THREE.PlaneGeometry(FLAG_W, FLAG_H, 16, 6), []);
   const basePos = useMemo(
@@ -112,34 +89,19 @@ export default function Arena() {
 
   const clothGeos = useMemo(() => flags.map(() => baseGeo.clone()), [flags, baseGeo]);
 
-  // Floodlight + grandstand placement at a few evenly spaced track samples.
+  // Floodlight towers sit just outside the stadium bowl and rake the track.
   const fixtures = useMemo(() => {
     const n = UNIFORM_SAMPLES.length;
     const at = (frac: number) => {
       const s = UNIFORM_SAMPLES[Math.floor(frac * n) % n];
-      return {
-        x: s.x,
-        z: s.z,
-        nx: s.tz,
-        nz: -s.tx,
-        heading: headingFromTangent(s.tx, s.tz),
-      };
+      return { x: s.x, z: s.z, nx: s.tz, nz: -s.tx };
     };
-    const floodlights = [0.05, 0.3, 0.55, 0.8].map((f) => {
+    const floodlights = [0.04, 0.21, 0.38, 0.54, 0.71, 0.87].map((f) => {
       const p = at(f);
-      const off = ROAD_WIDTH / 2 + 16;
+      const off = ROAD_WIDTH / 2 + 52;
       return { x: p.x + p.nx * off, z: p.z + p.nz * off, tx: p.x, tz: p.z };
     });
-    const stands = [0.18, 0.68].map((f) => {
-      const p = at(f);
-      const off = ROAD_WIDTH / 2 + 24;
-      return {
-        x: p.x + p.nx * off,
-        z: p.z + p.nz * off,
-        heading: p.heading,
-      };
-    });
-    return { floodlights, stands };
+    return { floodlights };
   }, []);
 
   const start = UNIFORM_SAMPLES[0];
@@ -216,60 +178,40 @@ export default function Arena() {
 
       {/* Stadium floodlights */}
       {fixtures.floodlights.map((fl, i) => {
-        const head = new THREE.Vector3(fl.x, 24, fl.z);
+        const head = new THREE.Vector3(fl.x, 46, fl.z);
         const aim = new THREE.Vector3(fl.tx, 0, fl.tz);
         const dir = aim.clone().sub(head).normalize();
         const yaw = Math.atan2(dir.x, dir.z);
         return (
           <group key={i} position={[fl.x, 0, fl.z]}>
-            <mesh position={[0, 12, 0]}>
-              <cylinderGeometry args={[0.4, 0.6, 24, 8]} />
+            <mesh position={[0, 23, 0]}>
+              <cylinderGeometry args={[0.5, 0.9, 46, 8]} />
               <meshStandardMaterial color="#1a160f" metalness={0.6} roughness={0.5} />
             </mesh>
-            <group position={[0, 24, 0]} rotation={[0, yaw, 0]}>
+            <group position={[0, 46, 0]} rotation={[0, yaw, 0]}>
               <mesh>
-                <boxGeometry args={[5, 2.4, 1]} />
+                <boxGeometry args={[8, 4, 1.2]} />
                 <meshStandardMaterial color="#100d08" />
               </mesh>
-              <mesh position={[0, 0, 0.55]}>
-                <boxGeometry args={[4.6, 2, 0.2]} />
-                <meshBasicMaterial color={GOLD_BRIGHT} toneMapped={false} />
-              </mesh>
+              {[-2.4, 0, 2.4].map((gx) =>
+                [-1.1, 1.1].map((gy) => (
+                  <mesh key={`${gx}:${gy}`} position={[gx, gy, 0.65]}>
+                    <boxGeometry args={[2.2, 1.6, 0.2]} />
+                    <meshBasicMaterial color={GOLD_BRIGHT} toneMapped={false} />
+                  </mesh>
+                )),
+              )}
             </group>
             <pointLight
-              position={[0, 23, 0]}
+              position={[0, 44, 0]}
               color={"#ffe6b0"}
-              intensity={120}
-              distance={150}
-              decay={1.6}
+              intensity={260}
+              distance={260}
+              decay={1.5}
             />
           </group>
         );
       })}
-
-      {/* Grandstands */}
-      {fixtures.stands.map((st, i) => (
-        <group key={i} position={[st.x, 0, st.z]} rotation={[0, st.heading, 0]}>
-          <mesh position={[0, 5, 3]}>
-            <boxGeometry args={[72, 10, 16]} />
-            <meshStandardMaterial color="#13100a" metalness={0.3} roughness={0.8} />
-          </mesh>
-          <mesh position={[0, 7.5, -4.4]} rotation={[-0.5, 0, 0]}>
-            <planeGeometry args={[70, 13]} />
-            <meshBasicMaterial map={crowd ?? undefined} color={crowd ? "#ffffff" : "#1a1610"} toneMapped={false} />
-          </mesh>
-          <mesh position={[0, 10.4, 3]}>
-            <boxGeometry args={[73, 0.7, 17]} />
-            <meshStandardMaterial
-              color={GOLD}
-              emissive={GOLD}
-              emissiveIntensity={0.5}
-              metalness={0.5}
-              roughness={0.4}
-            />
-          </mesh>
-        </group>
-      ))}
     </group>
   );
 }

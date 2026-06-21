@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Mesh Studio",
+  title: "THE MEGATHON RACE",
   description: "Generate textured 3D models from a single prompt.",
 };
 

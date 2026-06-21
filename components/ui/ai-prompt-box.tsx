@@ -2,8 +2,9 @@
 
 import React from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
-import { ArrowUp, Square, StopCircle, Mic } from "lucide-react";
+import { ArrowUp, Square, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useVapiDictation } from "@/lib/useVapiDictation";
 
 // Embedded CSS for minimal custom styles
 const styles = `
@@ -108,72 +109,22 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 );
 Button.displayName = "Button";
 
-// VoiceRecorder Component
-interface VoiceRecorderProps {
-  isRecording: boolean;
-  onStartRecording: () => void;
-  onStopRecording: (duration: number) => void;
-  visualizerBars?: number;
-}
-const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
-  isRecording,
-  onStartRecording,
-  onStopRecording,
-  visualizerBars = 32,
-}) => {
-  const [time, setTime] = React.useState(0);
-  const timerRef = React.useRef<NodeJS.Timeout | null>(null);
-
-  React.useEffect(() => {
-    if (isRecording) {
-      onStartRecording();
-      timerRef.current = setInterval(() => setTime((t) => t + 1), 1000);
-    } else {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      onStopRecording(time);
-      setTime(0);
-    }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [isRecording, time, onStartRecording, onStopRecording]);
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  return (
-    <div
-      className={cn(
-        "flex flex-col items-center justify-center w-full transition-all duration-300 py-3",
-        isRecording ? "opacity-100" : "opacity-0 h-0"
-      )}
-    >
-      <div className="flex items-center gap-2 mb-3">
-        <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-        <span className="font-mono text-sm text-white/80">{formatTime(time)}</span>
-      </div>
-      <div className="w-full h-10 flex items-center justify-center gap-0.5 px-4">
-        {[...Array(visualizerBars)].map((_, i) => (
-          <div
-            key={i}
-            className="w-0.5 rounded-full bg-white/50 animate-pulse"
-            style={{
-              height: `${Math.max(15, Math.random() * 100)}%`,
-              animationDelay: `${i * 0.05}s`,
-              animationDuration: `${0.5 + Math.random() * 0.5}s`,
-            }}
-          />
-        ))}
-      </div>
-    </div>
-  );
-};
+// Live waveform shown while the mic is held and Vapi is transcribing.
+const ListeningBars: React.FC<{ bars?: number }> = ({ bars = 18 }) => (
+  <div className="flex items-center gap-0.5 h-4">
+    {[...Array(bars)].map((_, i) => (
+      <span
+        key={i}
+        className="w-0.5 rounded-full bg-red-400/80 animate-pulse"
+        style={{
+          height: `${30 + ((i * 37) % 70)}%`,
+          animationDelay: `${(i % 6) * 0.08}s`,
+          animationDuration: `${0.5 + (i % 4) * 0.12}s`,
+        }}
+      />
+    ))}
+  </div>
+);
 
 // PromptInput Context and Components
 interface PromptInputContextType {
@@ -310,7 +261,7 @@ const PromptInputTextarea: React.FC<PromptInputTextareaProps & React.ComponentPr
   );
 };
 
-interface PromptInputActionsProps extends React.HTMLAttributes<HTMLDivElement> {}
+type PromptInputActionsProps = React.HTMLAttributes<HTMLDivElement>;
 const PromptInputActions: React.FC<PromptInputActionsProps> = ({ children, className, ...props }) => (
   <div className={cn("flex items-center gap-2", className)} {...props}>
     {children}
@@ -353,22 +304,29 @@ interface PromptInputBoxProps {
 export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref: React.Ref<HTMLDivElement>) => {
   const { onSend = () => {}, isLoading = false, placeholder = "Type your message here...", className } = props;
   const [input, setInput] = React.useState("");
-  const [isRecording, setIsRecording] = React.useState(false);
   const promptBoxRef = React.useRef<HTMLDivElement>(null);
 
+  const dictation = useVapiDictation({ onText: setInput });
+  const { listening, connecting, available, error, start, stop } = dictation;
+  const active = listening || connecting;
+
   const handleSubmit = () => {
+    if (active) stop();
     if (input.trim()) {
       onSend(input.trim());
       setInput("");
     }
   };
 
-  const handleStartRecording = () => console.log("Started recording");
-
-  const handleStopRecording = (duration: number) => {
-    console.log(`Stopped recording after ${duration} seconds`);
-    setIsRecording(false);
-    onSend(`[Voice message - ${duration} seconds]`, []);
+  const beginTalk = (e: React.PointerEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    if (isLoading || active) return;
+    // Capture the pointer so releasing anywhere still stops dictation.
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    start(input);
+  };
+  const endTalk = () => {
+    if (active) stop();
   };
 
   const hasContent = input.trim().length > 0;
@@ -381,70 +339,81 @@ export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref:
       onSubmit={handleSubmit}
       className={cn(
         "w-full bg-[#1F2023] border-[#444444] shadow-[0_8px_30px_rgba(0,0,0,0.24)] transition-all duration-300 ease-in-out",
-        isRecording && "border-red-500/70",
+        active && "border-red-500/70 shadow-[0_0_0_1px_rgba(239,68,68,0.35),0_8px_30px_rgba(0,0,0,0.24)]",
         className
       )}
-      disabled={isLoading || isRecording}
+      disabled={isLoading}
       ref={ref || promptBoxRef}
     >
-      <div
-        className={cn(
-          "transition-all duration-300",
-          isRecording ? "h-0 overflow-hidden opacity-0" : "opacity-100"
-        )}
-      >
-        <PromptInputTextarea placeholder={placeholder} className="text-base" />
-      </div>
+      <PromptInputTextarea
+        placeholder={connecting ? "Connecting…" : listening ? "Listening… speak now" : placeholder}
+        className="text-base"
+      />
 
-      {isRecording && (
-        <VoiceRecorder
-          isRecording={isRecording}
-          onStartRecording={handleStartRecording}
-          onStopRecording={handleStopRecording}
-        />
-      )}
+      <PromptInputActions className="flex items-center justify-between gap-2 p-0 pt-2">
+        <div className="flex min-h-[20px] items-center gap-2 pl-1 text-xs text-gray-400">
+          {listening ? (
+            <span className="flex items-center gap-2 text-red-400">
+              <ListeningBars />
+              <span>release to stop</span>
+            </span>
+          ) : connecting ? (
+            <span className="flex items-center gap-2 text-amber-300/90">
+              <span className="h-2 w-2 animate-ping rounded-full bg-amber-400" />
+              <span>connecting…</span>
+            </span>
+          ) : error ? (
+            <span className="text-amber-400/90">{error}</span>
+          ) : (
+            <span className="hidden truncate sm:inline">
+              {available ? "Hold the mic to talk · Enter to generate" : "Voice off — set NEXT_PUBLIC_VAPI_PUBLIC_KEY"}
+            </span>
+          )}
+        </div>
 
-      <PromptInputActions className="flex items-center justify-end gap-2 p-0 pt-2">
-        <PromptInputAction
-          tooltip={
-            isLoading
-              ? "Stop generation"
-              : isRecording
-              ? "Stop recording"
-              : hasContent
-              ? "Send message"
-              : "Voice message"
-          }
-        >
-          <Button
-            variant="default"
-            size="icon"
-            className={cn(
-              "h-8 w-8 rounded-full transition-all duration-200",
-              isRecording
-                ? "bg-transparent hover:bg-gray-600/30 text-red-500 hover:text-red-400"
-                : hasContent
-                ? "bg-white hover:bg-white/80 text-[#1F2023]"
-                : "bg-transparent hover:bg-gray-600/30 text-[#9CA3AF] hover:text-[#D1D5DB]"
-            )}
-            onClick={() => {
-              if (isRecording) setIsRecording(false);
-              else if (hasContent) handleSubmit();
-              else setIsRecording(true);
-            }}
-            disabled={isLoading && !hasContent}
-          >
-            {isLoading ? (
-              <Square className="h-4 w-4 fill-[#1F2023] animate-pulse" />
-            ) : isRecording ? (
-              <StopCircle className="h-5 w-5 text-red-500" />
-            ) : hasContent ? (
-              <ArrowUp className="h-4 w-4 text-[#1F2023]" />
-            ) : (
-              <Mic className="h-5 w-5 text-[#1F2023] transition-colors" />
-            )}
-          </Button>
-        </PromptInputAction>
+        <div className="flex items-center gap-2">
+          <PromptInputAction tooltip={active ? "Release to stop" : "Hold to talk"}>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-pressed={active}
+              onPointerDown={beginTalk}
+              onPointerUp={endTalk}
+              onPointerLeave={endTalk}
+              onPointerCancel={endTalk}
+              disabled={isLoading}
+              className={cn(
+                "h-9 w-9 select-none rounded-full transition-all duration-200",
+                active
+                  ? "scale-110 border-red-500/70 bg-red-500/20 text-red-300"
+                  : "border-[#444444] text-gray-300 hover:text-white"
+              )}
+            >
+              <Mic className={cn("h-5 w-5", active && "animate-pulse")} />
+            </Button>
+          </PromptInputAction>
+
+          <PromptInputAction tooltip={isLoading ? "Generating…" : "Generate car"}>
+            <Button
+              type="button"
+              variant="default"
+              size="icon"
+              onClick={handleSubmit}
+              disabled={isLoading || !hasContent}
+              className={cn(
+                "h-9 w-9 rounded-full transition-all duration-200",
+                hasContent ? "bg-white text-[#1F2023] hover:bg-white/80" : "bg-white/15 text-gray-400"
+              )}
+            >
+              {isLoading ? (
+                <Square className="h-4 w-4 animate-pulse fill-current" />
+              ) : (
+                <ArrowUp className="h-4 w-4" />
+              )}
+            </Button>
+          </PromptInputAction>
+        </div>
       </PromptInputActions>
     </PromptInput>
   );

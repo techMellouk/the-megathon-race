@@ -95,7 +95,7 @@ export default function ModelStudio() {
                 <h1 className="hero-title">THE MEGATHON RACE</h1>
                 <p className="hero-subtitle">
                   Generate the car that lets you win the race. Describe your dream
-                  racer — we build it in 3D, then you take it to the track.
+                  racer, we build it in 3D, then you take it to the track.
                 </p>
               </div>
 
