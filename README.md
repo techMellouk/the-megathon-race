@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+<div align="center">
 
-## Getting Started
+# THE MEGATHON RACE
 
-First, run the development server:
+**Describe your dream car in words (or voice), we build it in 3D, then you race it against AI rivals.**
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+### ▶ [Play it live](https://the-megathon-race-production.up.railway.app/)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+![THE MEGATHON RACE demo](demo.gif)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+</div>
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## How to play (60 seconds)
 
-To learn more about Next.js, take a look at the following resources:
+1. Open the **[live app](https://the-megathon-race-production.up.railway.app/)**.
+2. **Describe your car** — type a prompt like *"a low neon street racer with a carbon wing"*, or **hold the mic button** and say it, then press **Enter**.
+3. Wait a few seconds while it's generated in **3D**, then preview your car.
+4. Hit **Pay & race** to unlock the track. This is a **test payment — no real money is charged** (see below).
+5. **Race!** Drive your car against 3 rivals, complete 3 laps, and try to finish first.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Test payment (no real money)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Checkout runs in **Mollie test mode**. When the card form appears, enter any fake data:
 
-## Deploy on Vercel
+| Field       | Value                 |
+| ----------- | --------------------- |
+| Card number | `4242 4242 4242 4242` |
+| Expiry      | `04/29`               |
+| CVC         | `432`                 |
+| Name        | `John Doe`            |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+> If Mollie shows a status screen instead of a card form, just choose **“Paid”**. After payment you're sent straight to the track.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Controls
+
+| Key       | Action          |
+| --------- | --------------- |
+| `W` / `↑` | Accelerate      |
+| `S` / `↓` | Brake / reverse |
+| `A` / `←` | Steer left      |
+| `D` / `→` | Steer right     |
+
+---
+
+<sub>Built for the Megathon — text/voice → 3D car generation, test checkout via Mollie, 3D racing in the browser.</sub>
