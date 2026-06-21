@@ -1,9 +1,7 @@
-import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { Client } from "wavespeed";
 import { getErrorMessage } from "@/lib/utils";
 import { jsonError, jsonSuccess } from "@/lib/api-response";
+import { encodeModelId } from "@/lib/model-store";
 
 export const runtime = "nodejs";
 
@@ -35,60 +33,11 @@ function extractOutputUrl(output: unknown): string | null {
   return null;
 }
 
-function extensionFor(url: string, contentType: string | null) {
-  try {
-    const ext = path.extname(new URL(url).pathname).toLowerCase();
-    if (ext === ".glb" || ext === ".gltf") {
-      return ext;
-    }
-  } catch {
-    // Fall back to content type below.
-  }
-
-  if (contentType?.includes("model/gltf+json")) {
-    return ".gltf";
-  }
-
-  return ".glb";
-}
-
 class UpstreamError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "UpstreamError";
   }
-}
-
-async function cacheModel(outputUrl: string) {
-  let response: Response;
-
-  try {
-    response = await fetch(outputUrl);
-  } catch (error) {
-    throw new UpstreamError(
-      `Failed to connect to WaveSpeed output URL: ${
-        error instanceof Error ? error.message : "unknown network error"
-      }`,
-    );
-  }
-
-  if (!response.ok) {
-    throw new UpstreamError(
-      `Could not download WaveSpeed output: ${response.status}`,
-    );
-  }
-
-  const contentType = response.headers.get("content-type");
-  const extension = extensionFor(outputUrl, contentType);
-  const filename = `${randomUUID()}${extension}`;
-  const outputDir = path.join(process.cwd(), ".generated-models");
-  const outputPath = path.join(outputDir, filename);
-  const buffer = Buffer.from(await response.arrayBuffer());
-
-  await mkdir(outputDir, { recursive: true });
-  await writeFile(outputPath, buffer);
-
-  return `/api/models/${filename}`;
 }
 
 export async function POST(request: Request) {
@@ -141,7 +90,7 @@ export async function POST(request: Request) {
       throw new UpstreamError("WaveSpeed did not return a model URL.");
     }
 
-    const modelUrl = await cacheModel(outputUrl);
+    const modelUrl = `/api/models/${encodeModelId(outputUrl)}`;
 
     return jsonSuccess({ modelUrl, sourceUrl: outputUrl });
   } catch (error) {

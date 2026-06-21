@@ -1,39 +1,41 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import {
+  contentTypeForExtension,
+  decodeModelId,
+  modelExtension,
+} from "@/lib/model-store";
 
 export const runtime = "nodejs";
-
-const MODEL_ID_PATTERN = /^[0-9a-f-]+\.(glb|gltf)$/;
-
-function contentTypeFor(modelId: string) {
-  return modelId.endsWith(".gltf") ? "model/gltf+json" : "model/gltf-binary";
-}
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ modelId: string }> },
 ) {
   const { modelId } = await params;
+  const sourceUrl = decodeModelId(modelId);
 
-  if (!MODEL_ID_PATTERN.test(modelId)) {
+  if (!sourceUrl) {
     return new Response("Invalid model id", { status: 400 });
   }
 
+  let upstream: Response;
   try {
-    const modelPath = path.join(process.cwd(), ".generated-models", modelId);
-    const file = await readFile(modelPath);
-
-    return new Response(file, {
-      headers: {
-        "Cache-Control": "no-store",
-        "Content-Type": contentTypeFor(modelId),
-      },
-    });
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-      return new Response("Model not found", { status: 404 });
-    }
-
-    return new Response("Failed to read model file", { status: 500 });
+    upstream = await fetch(sourceUrl);
+  } catch {
+    return new Response("Failed to reach model source", { status: 502 });
   }
+
+  if (upstream.status === 404) {
+    return new Response("Model not found", { status: 404 });
+  }
+
+  if (!upstream.ok || !upstream.body) {
+    return new Response("Failed to fetch model", { status: 502 });
+  }
+
+  return new Response(upstream.body, {
+    headers: {
+      "Cache-Control": "public, max-age=3600, immutable",
+      "Content-Type": contentTypeForExtension(modelExtension(modelId)),
+    },
+  });
 }

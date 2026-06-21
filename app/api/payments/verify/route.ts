@@ -1,6 +1,7 @@
 import { getErrorMessage } from "@/lib/utils";
 import { jsonError, jsonSuccess } from "@/lib/api-response";
 import { getMollieClient } from "@/lib/mollie";
+import { modelExtension } from "@/lib/model-store";
 
 export const runtime = "nodejs";
 
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
       return jsonError("Payment metadata is missing model information.", 502);
     }
 
-    const extension = modelId.endsWith(".gltf") ? "gltf" : "glb";
+    const extension = modelExtension(modelId);
 
     return jsonSuccess({
       paid,
