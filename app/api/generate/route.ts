@@ -16,7 +16,7 @@ type GenerationBody = {
   prompt?: unknown;
 };
 
-function extractOutputUrl(output: unknown): string | null {
+export function extractOutputUrl(output: unknown): string | null {
   if (typeof output === "string") {
     return output;
   }
@@ -35,7 +35,7 @@ function extractOutputUrl(output: unknown): string | null {
   return null;
 }
 
-function extensionFor(url: string, contentType: string | null) {
+export function extensionFor(url: string, contentType: string | null) {
   try {
     const ext = path.extname(new URL(url).pathname).toLowerCase();
     if (ext === ".glb" || ext === ".gltf") {

@@ -3,9 +3,9 @@ import path from "node:path";
 
 export const runtime = "nodejs";
 
-const MODEL_ID_PATTERN = /^[0-9a-f-]+\.(glb|gltf)$/;
+export const MODEL_ID_PATTERN = /^[0-9a-f-]+\.(glb|gltf)$/;
 
-function contentTypeFor(modelId: string) {
+export function contentTypeFor(modelId: string) {
   return modelId.endsWith(".gltf") ? "model/gltf+json" : "model/gltf-binary";
 }
 

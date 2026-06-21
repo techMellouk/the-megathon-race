@@ -21,7 +21,7 @@ type GenerateResponse = {
 
 // The ai-prompt-box wraps messages like "[Search: ...]" when a mode toggle is
 // active. Strip that wrapper so the 3D prompt stays clean.
-function cleanMessage(message: string) {
+export function cleanMessage(message: string) {
   const wrapped = message.match(/^\[(?:Search|Think|Canvas):\s*([\s\S]*)\]$/);
   return (wrapped ? wrapped[1] : message).trim();
 }
