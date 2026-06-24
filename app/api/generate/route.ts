@@ -1,5 +1,4 @@
 import { Client } from "wavespeed";
-import { getErrorMessage } from "@/lib/utils";
 import { jsonError, jsonSuccess } from "@/lib/api-response";
 import { encodeModelId } from "@/lib/model-store";
 
@@ -9,6 +8,25 @@ const MODEL = "wavespeed-ai/hunyuan-3d-v3.1/text-to-3d-rapid";
 const MAX_PROMPT_LENGTH = 600;
 // Hunyuan rapid accepts a single prompt, max 200 UTF-8 characters.
 const HUNYUAN_PROMPT_LIMIT = 200;
+
+/* ------------------------------------------------------------------ */
+/*  Simple in-memory sliding-window rate limiter (per IP, 5 req / 60s) */
+/* ------------------------------------------------------------------ */
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 5;
+const ipHits = new Map<string, number[]>();
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const hits = (ipHits.get(ip) ?? []).filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+  if (hits.length >= RATE_LIMIT_MAX) {
+    ipHits.set(ip, hits);
+    return true;
+  }
+  hits.push(now);
+  ipHits.set(ip, hits);
+  return false;
+}
 
 type GenerationBody = {
   prompt?: unknown;
@@ -59,10 +77,19 @@ export async function POST(request: Request) {
     return jsonError(`Prompt must be ${MAX_PROMPT_LENGTH} characters or less.`, 400);
   }
 
+  /* ---------- Rate-limit by client IP ---------- */
+  const forwarded = request.headers.get("x-forwarded-for");
+  const ip = forwarded ? forwarded.split(",")[0].trim() : "unknown";
+
+  if (isRateLimited(ip)) {
+    return jsonError("Too many requests. Please wait a minute and try again.", 429);
+  }
+
   const apiKey = process.env.WAVESPEED_API_KEY;
 
   if (!apiKey) {
-    return jsonError("WAVESPEED_API_KEY is not configured on the server.", 500);
+    // Generic message – never leak env-var names to the client.
+    return jsonError("The generation service is not configured. Please contact the administrator.", 500);
   }
 
   try {
@@ -94,7 +121,9 @@ export async function POST(request: Request) {
 
     return jsonSuccess({ modelUrl, sourceUrl: outputUrl });
   } catch (error) {
+    // Log the real error server-side; return a safe generic message.
+    console.error("[generate] upstream error:", error);
     const status = error instanceof UpstreamError ? 502 : 500;
-    return jsonError(getErrorMessage(error, "Unknown generation error."), status);
+    return jsonError("Model generation failed. Please try again later.", status);
   }
 }
